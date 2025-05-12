@@ -2,12 +2,16 @@
 // Created by Suhel Chakraborty on 11/05/25.
 //
 
-#include "llama-completion.h"
-#include "log-ext.h"
+#include "mcl-context.h"
 
+#include <unistd.h>
+
+#include "llama.h"
+#include "mcl-result.h"
 #include "common.h"
+#include "mcl-log-ext.h"
 
-struct llama_completion {
+struct mcl_context {
     llama_model *model;
     llama_context *ctx;
     llama_batch batch;
@@ -55,11 +59,11 @@ static bool is_valid_utf8(const char *string) {
     return true;
 }
 
-llama_result llama_completion_init(llama_completion **self_ptr,
+mcl_result mcl_context_init(mcl_context **self_ptr,
                                    llama_model *model,
                                    int max_tokens) {
     if (!self_ptr) {
-        return LLAMA_INVALID_ARG;
+        return MCL_INVALID_ARG;
     }
 
     int n_threads = (int) sysconf(_SC_NPROCESSORS_ONLN);
@@ -71,10 +75,10 @@ llama_result llama_completion_init(llama_completion **self_ptr,
     auto ctx = llama_init_from_model(model, ctx_params);
 
     if (!ctx) {
-        return LLAMA_CTX_CREATE_ERROR;
+        return MCL_CTX_CREATE_ERROR;
     }
 
-    *self_ptr = new llama_completion{
+    *self_ptr = new mcl_context{
             .model = model,
             .ctx = ctx,
             .batch = llama_batch_init(1, 0, 1),
@@ -83,10 +87,10 @@ llama_result llama_completion_init(llama_completion **self_ptr,
             .n_threads = n_threads
     };
 
-    return LLAMA_OK;
+    return MCL_OK;
 }
 
-llama_result llama_completion_feed_prompt(llama_completion *self, const char *prompt) {
+mcl_result mcl_context_feed_prompt(mcl_context *self, const char *prompt) {
     auto tokens = common_tokenize(self->ctx, prompt, true, true);
     auto batch = llama_batch_init((int32_t) tokens.size(), 0, 1);
 
@@ -100,17 +104,17 @@ llama_result llama_completion_feed_prompt(llama_completion *self, const char *pr
     llama_batch_free(batch);
 
     if (decode_result != 0) {
-        return LLAMA_DECODE_ERROR;
+        return MCL_DECODE_ERROR;
     }
 
     self->token_pos = token_count;
     self->utf_cache.clear();
     common_batch_clear(self->batch);
 
-    return LLAMA_OK;
+    return MCL_OK;
 }
 
-std::optional<std::string> llama_completion_generate_next_token(llama_completion *self) {
+std::optional<std::string> mcl_context_generate_next_token(mcl_context *self) {
     llama_token new_token = llama_sampler_sample(self->sampler, self->ctx, -1);
     if (llama_vocab_is_eog(llama_model_get_vocab(self->model), new_token)) {
         return std::nullopt;
@@ -122,7 +126,7 @@ std::optional<std::string> llama_completion_generate_next_token(llama_completion
     self->token_pos++;
 
     auto decode_result = llama_decode(self->ctx, self->batch);
-    if(decode_result != 0) {
+    if (decode_result != 0) {
         return std::nullopt;
     }
 
@@ -138,19 +142,19 @@ std::optional<std::string> llama_completion_generate_next_token(llama_completion
     }
 }
 
-void llama_completion_clear_kv_cache(llama_completion *self) {
+void mcl_context_clear_kv_cache(mcl_context *self) {
     if (self && self->ctx) {
         llama_kv_self_clear(self->ctx);
     }
 }
 
-void llama_completion_reset_sampler(llama_completion *self) {
+void mcl_context_reset_sampler(mcl_context *self) {
     if (self && self->sampler) {
         llama_sampler_reset(self->sampler);
     }
 }
 
-void llama_completion_free(llama_completion *self) {
+void mcl_context_free(mcl_context *self) {
     if (!self) {
         return;
     }

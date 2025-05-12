@@ -2,7 +2,6 @@ package com.suhel.mycoolllama.screens.models
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,7 +32,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.suhel.mycoolllama.data.GlobalState
+import com.suhel.mycoolllama.data.RouterParams
 import com.suhel.mycoolllama.data.ModelsRepository.Model
 import com.suhel.mycoolllama.ui.theme.ScreenScaffold
 import kotlinx.coroutines.launch
@@ -60,7 +59,7 @@ fun ModelsScreen(
                 models = state.availableModels,
                 modifier = Modifier.weight(1f),
                 onClick = { model ->
-                    GlobalState.loadModel(model)
+                    RouterParams.loadModel(model)
                     onNavChat()
                 },
                 onDeleteClick = { model ->
@@ -104,16 +103,7 @@ private fun ExistingModelsSubScreen(
     onClick: (Model) -> Unit,
     onDeleteClick: (Model) -> Unit
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.secondary,
-                shape = MaterialTheme.shapes.large
-            )
-    ) {
+    Box(modifier = modifier.fillMaxWidth()) {
         if (models.isEmpty()) {
             Text(
                 text = "No models available",
@@ -150,7 +140,8 @@ private fun ModelItem(
         ) {
             Text(
                 text = model.name,
-                fontSize = 18.sp,
+                fontSize = 16.sp,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
             )

@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "My Cool Llama"
 include(":app")
-include(":llamacpp")
+include(":mycoolllama")

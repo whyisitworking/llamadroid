@@ -4,22 +4,25 @@ package com.suhel.mycoolllama.screens.chat
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.suhel.llamacpp.LlamaContext
 import com.suhel.llamacpp.LlamaModel
-import com.suhel.mycoolllama.data.GlobalState
+import com.suhel.mycoolllama.data.RouterParams
+import com.suhel.mycoolllama.extensions.cacheIn
+import com.suhel.mycoolllama.extensions.emitNullOnStart
+import com.suhel.mycoolllama.extensions.trigger
+import com.suhel.mycoolllama.extensions.triggerFlow
+import com.suhel.mycoolllama.extensions.unitTriggerFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.scan
-import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
 @HiltViewModel
@@ -28,61 +31,36 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
         private const val TAG = "ChatScreenViewModel"
     }
 
-    private val generateCompletionTrigger = MutableSharedFlow<String?>(
-        replay = 1,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
+    private val generateCompletionTrigger = triggerFlow<String>()
+    private val clearKVCacheTrigger = unitTriggerFlow()
+    private val resetSamplerTrigger = unitTriggerFlow()
 
-    private val completion = GlobalState.currentModel
+    private val completion = RouterParams.currentModel
         .filterNotNull()
-        .flatMapLatest { LlamaModel.loadModelFlow(it.filePath) }
-        .flatMapLatest { it.createCompletionFlow() }
-        .stateIn(
-            viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue = null
-        )
+        .flatMapLatest { LlamaModel.load(it.filePath) }
+        .flatMapLatest { model -> model.newContext() }
+        .cacheIn(viewModelScope)
+
+    private val _clearKVCacheJob = completion
+        .filterNotNull()
+        .combine(clearKVCacheTrigger) { completion, _ ->
+            completion.clearKVCache()
+        }
+        .launchIn(viewModelScope)
+
+    private val _resetSamplerJob = completion
+        .filterNotNull()
+        .combine(resetSamplerTrigger) { completion, _ ->
+            completion.resetSampler()
+        }
+        .launchIn(viewModelScope)
 
     val state = combine(
-        completion.onStart { emit(null) },
-        generateCompletionTrigger.onStart { emit(null) }
+        completion,
+        generateCompletionTrigger.emitNullOnStart()
     ) { completion, prompt -> completion to prompt }
         .distinctUntilChanged()
-        .flatMapLatest { (completion, prompt) ->
-            when {
-                completion == null -> flowOf(ChatCompletionEvent(loadingModel = true))
-
-                prompt != null -> flow {
-                    emit(
-                        ChatCompletionEvent(
-                            generating = true,
-                            newMessage = ChatScreenState.Message(
-                                text = prompt,
-                                isOutgoing = true
-                            )
-                        )
-                    )
-
-                    completion.feedPrompt(prompt)
-                    completion.createGenerationFlow().collect { output ->
-                        emit(
-                            ChatCompletionEvent(
-                                generating = output.generating,
-                                generatedOutput = output.text.takeIf { output.generating },
-                                newMessage = output.text?.takeIf { !output.generating }?.let {
-                                    ChatScreenState.Message(
-                                        text = it,
-                                        isOutgoing = false
-                                    )
-                                }
-                            )
-                        )
-                    }
-                }
-
-                else -> flowOf(ChatCompletionEvent())
-            }
-        }
+        .flatMapLatest { (completion, prompt) -> chatCompletionFlow(completion, prompt) }
         .distinctUntilChanged()
         .scan(ChatScreenState()) { prevState, event ->
             prevState.copy(
@@ -92,13 +70,62 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
                 incomingMessage = event.generatedOutput
             )
         }
-        .stateIn(
-            viewModelScope,
-            started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
-            initialValue = ChatScreenState(loadingModel = true)
+        .cacheIn(viewModelScope, ChatScreenState(loadingModel = true))
+
+    data class ChatCompletionEvent(
+        val loadingModel: Boolean = false,
+        val generating: Boolean = false,
+        val newMessage: ChatMessage? = null,
+        val generatedOutput: String? = null
+    )
+
+    private fun chatCompletionFlow(
+        completion: LlamaContext?,
+        prompt: String?
+    ): Flow<ChatCompletionEvent> = when {
+        completion == null -> flowOf(
+            ChatCompletionEvent(loadingModel = true)
         )
 
-    fun addPrompt(prompt: String) {
-        generateCompletionTrigger.tryEmit(prompt)
+        prompt != null -> flow {
+            emit(
+                ChatCompletionEvent(
+                    generating = true,
+                    newMessage = ChatMessage(
+                        text = prompt,
+                        isOutgoing = true
+                    )
+                )
+            )
+            completion.feedPrompt(prompt)
+            completion.createGenerationFlow().collect { output ->
+                emit(
+                    ChatCompletionEvent(
+                        generating = output.generating,
+                        generatedOutput = output.text.takeIf { output.generating },
+                        newMessage = output.text.takeIf { !output.generating }?.let {
+                            ChatMessage(
+                                text = it,
+                                isOutgoing = false
+                            )
+                        }
+                    )
+                )
+            }
+        }
+
+        else -> flowOf(ChatCompletionEvent())
+    }
+
+    fun generate(prompt: String) {
+        generateCompletionTrigger.trigger(prompt)
+    }
+
+    fun clearKVCache() {
+        clearKVCacheTrigger.trigger()
+    }
+
+    fun resetSampler() {
+        resetSamplerTrigger.trigger()
     }
 }

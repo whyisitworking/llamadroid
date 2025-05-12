@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
-object GlobalState {
+object RouterParams {
     private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private val loadModelTrigger = MutableSharedFlow<Model>(
