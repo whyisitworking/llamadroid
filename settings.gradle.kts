@@ -21,4 +21,5 @@ dependencyResolutionManagement {
 
 rootProject.name = "My Cool Llama"
 include(":app")
-include(":mycoolllama")
+include(":llama")
+include(":executorch")

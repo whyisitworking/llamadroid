@@ -6,7 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.suhel.llamacpp.LlamaContext
 import com.suhel.llamacpp.LlamaModel
-import com.suhel.mycoolllama.data.RouterParams
+import com.suhel.mycoolllama.GlobalRouter
 import com.suhel.mycoolllama.extensions.cacheIn
 import com.suhel.mycoolllama.extensions.emitNullOnStart
 import com.suhel.mycoolllama.extensions.flatMapCombine
@@ -25,8 +25,6 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -42,7 +40,7 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
     private val clearKVCacheTrigger = unitTriggerFlow()
     private val resetSamplerTrigger = unitTriggerFlow()
 
-    private val completion = RouterParams.currentModel
+    private val completion = GlobalRouter.currentModel
         .filterNotNull()
         .flatMapLatest { LlamaModel.load(it.filePath) }
         .flatMapLatest { model -> model.newContext() }

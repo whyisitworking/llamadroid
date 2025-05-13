@@ -1,13 +1,10 @@
-@file:OptIn(ExperimentalCoroutinesApi::class)
-
-package com.suhel.mycoolllama.data
+package com.suhel.mycoolllama.screens.models
 
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -18,7 +15,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.Serializable
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -28,7 +24,9 @@ import javax.inject.Inject
 import kotlin.math.log10
 import kotlin.math.pow
 
-class ModelsRepository @Inject constructor(@ApplicationContext private val context: Context) {
+class ModelsRepository @Inject constructor(
+    @ApplicationContext private val context: Context
+) {
     private val importModelTrigger = MutableSharedFlow<Uri>(
         replay = 1,
         onBufferOverflow = BufferOverflow.DROP_OLDEST

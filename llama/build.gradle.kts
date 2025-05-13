@@ -13,20 +13,6 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
-
-        ndk {
-            abiFilters += listOf("arm64-v8a")
-        }
-        externalNativeBuild {
-            cmake {
-                arguments += listOf(
-                    "-DLLAMA_CURL=OFF",
-                    "-DLLAMA_BUILD_COMMON=ON",
-                    "-DGGML_LLAMAFILE=OFF",
-                    "-DCMAKE_BUILD_TYPE=MinSizeRel",
-                )
-            }
-        }
     }
 
     buildTypes {
@@ -45,6 +31,7 @@ android {
     externalNativeBuild {
         cmake {
             path("src/main/cpp/CMakeLists.txt")
+            version = "3.31.6"
         }
     }
     kotlinOptions {

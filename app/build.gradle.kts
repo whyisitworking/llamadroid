@@ -70,5 +70,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
 
     implementation(libs.twain)
-    implementation(project(":mycoolllama"))
+    implementation(project(":llama"))
+    implementation(project(":executorch"))
 }
