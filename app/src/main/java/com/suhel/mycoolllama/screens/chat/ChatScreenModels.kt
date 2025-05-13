@@ -6,6 +6,7 @@ import java.util.UUID
 
 @Stable
 data class ChatScreenState(
+    val modelName: String? = null,
     val loadingModel: Boolean = false,
     val generating: Boolean = false,
     val messages: List<ChatMessage> = emptyList(),

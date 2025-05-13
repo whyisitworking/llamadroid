@@ -79,14 +79,11 @@ mcl_result mcl_context_init(mcl_context **self_ptr,
         return MCL_CTX_CREATE_ERROR;
     }
 
-    auto *sampler = llama_sampler_init_temp(0.8f);
-    llama_sampler_reset(sampler);
-
     *self_ptr = new mcl_context{
             .model = model,
             .ctx = ctx,
             .batch = llama_batch_init(1, 0, 1),
-            .sampler = sampler,
+            .sampler = llama_sampler_init_greedy(),
             .max_tokens = max_tokens,
             .n_threads = n_threads
     };
@@ -122,7 +119,7 @@ std::optional<std::string> mcl_context_generate_next_token(mcl_context *self) {
     if (llama_vocab_is_eog(llama_model_get_vocab(self->model), new_token)) {
         return std::nullopt;
     }
-    
+
     common_batch_clear(self->batch);
     common_batch_add(self->batch, new_token, self->token_pos, {0}, true);
 

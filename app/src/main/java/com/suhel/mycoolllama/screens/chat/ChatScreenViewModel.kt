@@ -9,6 +9,8 @@ import com.suhel.llamacpp.LlamaModel
 import com.suhel.mycoolllama.data.RouterParams
 import com.suhel.mycoolllama.extensions.cacheIn
 import com.suhel.mycoolllama.extensions.emitNullOnStart
+import com.suhel.mycoolllama.extensions.flatMapCombine
+import com.suhel.mycoolllama.extensions.takeUntil
 import com.suhel.mycoolllama.extensions.trigger
 import com.suhel.mycoolllama.extensions.triggerFlow
 import com.suhel.mycoolllama.extensions.unitTriggerFlow
@@ -23,6 +25,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
@@ -34,6 +38,7 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
     }
 
     private val generateCompletionTrigger = triggerFlow<String>()
+    private val stopCompletionTrigger = unitTriggerFlow()
     private val clearKVCacheTrigger = unitTriggerFlow()
     private val resetSamplerTrigger = unitTriggerFlow()
 
@@ -63,12 +68,17 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
             .launchIn(viewModelScope)
     }
 
-    val state = combine(
-        completion,
-        generateCompletionTrigger.emitNullOnStart()
-    ) { completion, prompt -> completion to prompt }
-        .distinctUntilChanged()
-        .flatMapLatest { (completion, prompt) -> chatCompletionFlow(completion, prompt) }
+    data class ChatCompletionEvent(
+        val loadingModel: Boolean = false,
+        val generating: Boolean = false,
+        val newMessage: ChatMessage? = null,
+        val generatedOutput: String? = null
+    )
+
+    val state = completion
+        .flatMapCombine(generateCompletionTrigger.emitNullOnStart()) { completion, prompt ->
+            chatCompletionFlow(completion, prompt).takeUntil(stopCompletionTrigger)
+        }
         .distinctUntilChanged()
         .scan(ChatScreenState()) { prevState, event ->
             prevState.copy(
@@ -79,13 +89,6 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
             )
         }
         .cacheIn(viewModelScope, ChatScreenState(loadingModel = true))
-
-    data class ChatCompletionEvent(
-        val loadingModel: Boolean = false,
-        val generating: Boolean = false,
-        val newMessage: ChatMessage? = null,
-        val generatedOutput: String? = null
-    )
 
     private fun chatCompletionFlow(
         completion: LlamaContext?,
@@ -127,6 +130,10 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
 
     fun generate(prompt: String) {
         generateCompletionTrigger.trigger(prompt)
+    }
+
+    fun stopGeneration() {
+        stopCompletionTrigger.trigger()
     }
 
     fun clearKVCache() {
