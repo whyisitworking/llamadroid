@@ -13,6 +13,7 @@ import com.suhel.mycoolllama.extensions.trigger
 import com.suhel.mycoolllama.extensions.triggerFlow
 import com.suhel.mycoolllama.extensions.unitTriggerFlow
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.scan
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
@@ -41,19 +43,25 @@ class ChatScreenViewModel @Inject constructor() : ViewModel() {
         .flatMapLatest { model -> model.newContext() }
         .cacheIn(viewModelScope)
 
-    private val _clearKVCacheJob = completion
-        .filterNotNull()
-        .combine(clearKVCacheTrigger) { completion, _ ->
-            completion.clearKVCache()
-        }
-        .launchIn(viewModelScope)
+    init {
+        completion
+            .filterNotNull()
+            .combine(clearKVCacheTrigger) { completion, _ ->
+                withContext(Dispatchers.IO) {
+                    completion.clearKVCache()
+                }
+            }
+            .launchIn(viewModelScope)
 
-    private val _resetSamplerJob = completion
-        .filterNotNull()
-        .combine(resetSamplerTrigger) { completion, _ ->
-            completion.resetSampler()
-        }
-        .launchIn(viewModelScope)
+        completion
+            .filterNotNull()
+            .combine(resetSamplerTrigger) { completion, _ ->
+                withContext(Dispatchers.IO) {
+                    completion.resetSampler()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 
     val state = combine(
         completion,

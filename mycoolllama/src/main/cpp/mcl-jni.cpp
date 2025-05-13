@@ -1,8 +1,4 @@
-#include <android/log.h>
 #include <jni.h>
-#include <sys/sysconf.h>
-#include <android/asset_manager.h>
-#include <android/asset_manager_jni.h>
 
 #include "llama.h"
 #include "common.h"
@@ -34,7 +30,7 @@ Java_com_suhel_llamacpp_LlamaBridge_modelLoad(JNIEnv *env,
     LOGv("Model loaded %s", model_path_str);
     env->ReleaseStringUTFChars(model_path, model_path_str);
 
-    return (jlong) model;
+    return reinterpret_cast<jlong>(model);
 }
 
 extern "C"
@@ -65,7 +61,7 @@ Java_com_suhel_llamacpp_LlamaBridge_contextCreate(JNIEnv *env __unused,
         LOGi("context init failed %d", result);
     }
 
-    return (jlong) context;
+    return reinterpret_cast<jlong>(context);
 }
 
 extern "C"
@@ -102,6 +98,7 @@ Java_com_suhel_llamacpp_LlamaBridge_contextClearKVCache(JNIEnv *env __unused,
                                                         jlong context_ptr) {
     auto context = (mcl_context *) context_ptr;
     mcl_context_clear_kv_cache(context);
+    LOGi("KV cache cleared");
 }
 
 extern "C"
@@ -111,6 +108,7 @@ Java_com_suhel_llamacpp_LlamaBridge_contextResetSampler(JNIEnv *env __unused,
                                                         jlong context_ptr) {
     auto context = (mcl_context *) context_ptr;
     mcl_context_reset_sampler(context);
+    LOGi("Sampler reset");
 }
 
 extern "C"

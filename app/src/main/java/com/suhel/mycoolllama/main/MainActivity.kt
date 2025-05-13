@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        LlamaBridge.libraryUnload();
+        LlamaBridge.libraryUnload()
         super.onDestroy()
     }
 }
