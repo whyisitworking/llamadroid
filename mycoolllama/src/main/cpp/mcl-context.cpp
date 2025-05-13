@@ -7,8 +7,9 @@
 #include <unistd.h>
 
 #include "llama.h"
-#include "mcl-result.h"
 #include "common.h"
+
+#include "mcl-result.h"
 #include "mcl-log-ext.h"
 
 struct mcl_context {
@@ -60,8 +61,8 @@ static bool is_valid_utf8(const char *string) {
 }
 
 mcl_result mcl_context_init(mcl_context **self_ptr,
-                                   llama_model *model,
-                                   int max_tokens) {
+                            llama_model *model,
+                            int max_tokens) {
     if (!self_ptr) {
         return MCL_INVALID_ARG;
     }
@@ -78,11 +79,14 @@ mcl_result mcl_context_init(mcl_context **self_ptr,
         return MCL_CTX_CREATE_ERROR;
     }
 
+    auto *sampler = llama_sampler_init_temp(0.8f);
+    llama_sampler_reset(sampler);
+
     *self_ptr = new mcl_context{
             .model = model,
             .ctx = ctx,
             .batch = llama_batch_init(1, 0, 1),
-            .sampler = llama_sampler_init_greedy(),
+            .sampler = sampler,
             .max_tokens = max_tokens,
             .n_threads = n_threads
     };
@@ -94,7 +98,7 @@ mcl_result mcl_context_feed_prompt(mcl_context *self, const char *prompt) {
     auto tokens = common_tokenize(self->ctx, prompt, true, true);
     auto batch = llama_batch_init((int32_t) tokens.size(), 0, 1);
 
-    for (size_t i = 0; i < tokens.size(); ++i) {
+    for (size_t i = 0; i < tokens.size(); i++) {
         common_batch_add(batch, tokens[i], (llama_pos) i, {0}, false);
     }
     auto token_count = batch.n_tokens;
@@ -109,7 +113,6 @@ mcl_result mcl_context_feed_prompt(mcl_context *self, const char *prompt) {
 
     self->token_pos = token_count;
     self->utf_cache.clear();
-    common_batch_clear(self->batch);
 
     return MCL_OK;
 }
@@ -119,7 +122,7 @@ std::optional<std::string> mcl_context_generate_next_token(mcl_context *self) {
     if (llama_vocab_is_eog(llama_model_get_vocab(self->model), new_token)) {
         return std::nullopt;
     }
-
+    
     common_batch_clear(self->batch);
     common_batch_add(self->batch, new_token, self->token_pos, {0}, true);
 

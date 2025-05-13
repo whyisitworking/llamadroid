@@ -23,7 +23,8 @@ android {
                     "-DLLAMA_CURL=OFF",
                     "-DLLAMA_BUILD_COMMON=ON",
                     "-DGGML_LLAMAFILE=OFF",
-                    "-DCMAKE_BUILD_TYPE=Release",
+                    "-DGGML_OPENMP=ON",
+                    "-DCMAKE_BUILD_TYPE=Debug",
                 )
             }
         }
